@@ -2,8 +2,6 @@ import json
 import sys
 from sets import Set
 
-addresses=Set()
-finalAddressData=[]
 
 """def cleanAddresses(input_address_data):
 	for each_addres in input_address_data:"""
@@ -39,7 +37,7 @@ def getSpace(text,start):
 		start=start-1
 	return start
 
-def extractAddress(text,type1):	
+def extractAddress(text,type1,addresses):	
 	end=-1	
 	if text.lower().find(" "+type1) !=-1:
 		end=text.lower().find(" "+type1)+len(type1)+1
@@ -60,25 +58,34 @@ def extractAddress(text,type1):
 		#print "Extracted: ",text[start:end].replace("\n","")
 		addresses.add(text[start:end].lower().replace("\n",""))
 		if text[end:].lower().find(" ave")!=-1:
-			extractAddress(text[end:],type1)
+			addresses=extractAddress(text[end:],type1,addresses)
+		return addresses
+	return addresses	
 #extractAddress("<BR />=?=?=  Table Shower available  =?=?=<br><br>?=Let us make you stress free one day at a time=?<br><br>=?= PUENTE Spa=?= <br><br>TEL:  626-338-8809  <br><br>  1832 Puente Ave. Baldwin Park, CA. 91706  <br><br>Clean Shower Included With Session<br><br>we always hiring beautiful ladies<br><br> Open- 9:00 AM to 9:30 PM<br>	</div>")		
 
 
-def processFile(input_file_name,type1):
+def processFile(input_file_name,type1,finalAddressData):
 	input_data=""
 	with open(input_file_name) as data_file:
 		input_data=json.load(data_file)	
 	extracted_address=[]
 	if type1 in input_data:
 		for each_a in input_data[type1]:
-			extractAddress(each_a,type1)		
+			temp={}
+			temp["input"]=each_a
+			addresses=Set()
+			addresses=extractAddress(each_a,type1,addresses)			
+			temp["address"]=list(addresses)		
+			finalAddressData.append(temp)
+
 
 if __name__ == '__main__':
 	keywords=""
 	with open(sys.argv[2]) as f:
 		keywords=json.load(f)
+	finalAddressData=[]	
 	for each_keyword in keywords:
-		processFile(sys.argv[1],each_keyword)
+		processFile(sys.argv[1],each_keyword,finalAddressData)
 	outputFile=open(sys.argv[1].split(".")[0]+"_out.txt","w")
-	json.dump(list(addresses),outputFile,sort_keys=False,indent=2)
+	json.dump(finalAddressData,outputFile,sort_keys=False,indent=2)
 	outputFile.close()
