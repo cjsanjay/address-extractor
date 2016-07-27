@@ -58,7 +58,7 @@ def extractAddress(text,search_index,type1,addresses):
 		if flag:
 			end=newEnd		
 		addresses.add(text[start:end].lower().replace("\n",""))		
-		if text[end:].lower().find(" ave")!=-1:
+		if text[end:].lower().find(" "+type1)!=-1:
 			addresses=extractAddress(text,end,type1,addresses)
 		return addresses
 	return addresses	

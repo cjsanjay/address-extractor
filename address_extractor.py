@@ -1,6 +1,9 @@
 import json
 import sys
 from sets import Set
+import time 
+
+
 
 
 """
@@ -57,7 +60,7 @@ def extractAddress(text,type1,addresses):
 		if flag:
 			end=newEnd		
 		addresses.add(text[start:end].lower().replace("\n",""))		
-		if text[end:].lower().find(" ave")!=-1:
+		if text[end:].lower().find(" "+type1)!=-1:
 			addresses=extractAddress(text[end:],type1,addresses)
 		return addresses
 	return addresses	
@@ -122,9 +125,11 @@ def getAddressFromFile(file_name,keywords):
 	return finalAddressData
 
 if __name__ == '__main__':
+	startTime = time.time()
 	finalAddressData=[]	
 	processFile(sys.argv[1],keywords,finalAddressData)
 	outputFile=open(sys.argv[1].split(".")[0]+"_out.txt","w")
 	json.dump(finalAddressData,outputFile,sort_keys=False,indent=2)	
 	outputFile.close()
 	print ("Output File: ",sys.argv[1].split(".")[0]+"_out.txt")
+	print ('Took {0} second !'.format(time.time() - startTime))
