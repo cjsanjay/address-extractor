@@ -1,5 +1,6 @@
 import json
 import sys
+import re
 from sets import Set
 import time 
 
@@ -8,12 +9,35 @@ import time
 Keywords: contains list of all the addresses type that we want to use for processing.
 """
 
-keywords=["avenue","blvd","boulevard","pkwy","parkway","st","street","rd","road","way","drive","lane","alley","ave"]		
+keywords=["avenue","blvd","boulevard","pkwy","parkway","st","street","rd","road","way","drive","lane","alley","ave"]
+
+phonePattern = re.compile(r'(\d{3})\D*(\d{3})\D*(\d{4})')
+
+def cleanAddress(text_string,level):
+	if level>0:
+		#Slicing from 'location' word in found adddress	
+		pos=text_string.find('location')
+		if pos >-1:
+			text_string=text_string[pos+len('location'):]
+	if level>1:
+		#Slicing from phone number reference word in found adddress to end
+		m=phonePattern.search(text_string)
+		if m!=None:			
+			pos=m.span()[1]
+			text_string=text_string[pos:]
+	if level>2:
+		#Cleaning if maps URL present
+		if text_string.find('maps.google.com') >-1 or text_string.find('=')>-1:
+			pos=text_string.rfind('=')
+			if pos >-1:
+				text_string=text_string[pos+1:].replace('+',' ')					
+	return text_string.strip()
+
 
 def getNum(text,start,dist):
 	end=start+1
 	flag=0
-	while start >0 and end-start <=dist:
+	while start >0 and end-start <=dist and text[start]!='\r' and text[start]!='\n':		
 		if text[start].isdigit() and (start-1==0 or text[start-1]==" " or text[start-1]=="\n" or text[start-1]==">" or text[start-1]==")"):
 			flag=1
 			break;
@@ -24,7 +48,7 @@ def getNumNext(text,end,dist):
 	start=end
 	flag=0
 	count=0
-	while end <len(text)-2 and end-start <=dist:		
+	while end <len(text)-2 and end-start <=dist and text[end]!='\r' and text[end]!='\n':		
 		if text[end].isdigit():
 			count+=1		
 		if count==5 and text[end+1].isdigit() and (end+1==len(text)-2 or text[end+1]==" " or text[end+1]=="\n" or text[end+1]=="<"):
@@ -40,15 +64,16 @@ def getSpace(text,start):
 		start=start-1
 	return start
 
-def extractAddress(text,search_index,type1,addresses):	
+def extractAddress(text,search_index,p,type1,addresses):	
 	end=-1	
-	if text.lower().find(" "+type1,search_index) !=-1:
-		end=text.lower().find(" "+type1,search_index)+len(type1)+1
+	m=p.search(text.lower(),search_index)
+	if m!=None:
+		end=m.span()[0]+len(type1)+1		
 	if end !=-1:
 		flag=1
 		flag,bkStart=getNum(text,end-(len(type1)+1),50)		
 		if flag==0:
-			start=getSpace(text,end-(len(type1)+1))
+			start=getSpace(text,end-(len(type1)+2))			
 		elif flag==1:
 			flag,start=getNum(text,bkStart-1,10)
 			#print (flag, text[start:end])
@@ -57,9 +82,10 @@ def extractAddress(text,search_index,type1,addresses):
 		flag,newEnd=getNumNext(text,end,25)
 		if flag:
 			end=newEnd		
-		addresses.add(text[start:end].lower().replace("\n",""))		
-		if text[end:].lower().find(" "+type1)!=-1:
-			addresses=extractAddress(text,end,type1,addresses)
+		addresses.add(cleanAddress(text[start:end].lower(),3))
+		m=p.search(text.lower(),end)		
+		if m!=None:
+			addresses=extractAddress(text,end,p,type1,addresses)
 		return addresses
 	return addresses	
 #extractAddress("<BR />=?=?=  Table Shower available  =?=?=<br><br>?=Let us make you stress free one day at a time=?<br><br>=?= PUENTE Spa=?= <br><br>TEL:  626-338-8809  <br><br>  1832 Puente Ave. Baldwin Park, CA. 91706  <br><br>Clean Shower Included With Session<br><br>we always hiring beautiful ladies<br><br> Open- 9:00 AM to 9:30 PM<br>	</div>")		
@@ -76,8 +102,10 @@ def processFile(input_file_name,keywords,finalAddressData):
 			temp["input"]=each_a
 			addresses=Set()
 			for each_keyword in keywords:
-				if each_a.lower().find(each_keyword.lower()) > -1:
-					addresses=extractAddress(each_a,0,each_keyword,addresses)			
+				p = re.compile(r'\b%s\b' % each_keyword.lower(), re.I)
+				m=p.search(each_a.lower())
+				if m!=None:
+					addresses=extractAddress(each_a,0,p,each_keyword,addresses)			
 			temp["address"]=list(addresses)		
 			finalAddressData.append(temp)
 
@@ -91,9 +119,11 @@ def getAddressFromString(text_string):
 	temp={}
 	temp["input"]=text_string
 	addresses=Set()
-	for each_keyword in keywords:		
-		if text_string.lower().find(each_keyword.lower()) > -1:
-			extractAddress(text_string,0,each_keyword,addresses)
+	for each_keyword in keywords:
+		p = re.compile(r'\b%s\b' % each_keyword.lower(), re.I)
+		m=p.search(text_string.lower())	
+		if m!=None:
+			extractAddress(text_string,0,p,each_keyword,addresses)		
 	temp["address"]=list(addresses)		
 	return temp
 
@@ -107,9 +137,11 @@ def getAddressFromStringType(text_string,keywords):
 	temp={}
 	temp["input"]=text_string
 	addresses=Set()
-	for each_keyword in keywords:	
-		if text_string.lower().find(each_keyword.lower()) > -1:			
-			extractAddress(text_string,0,each_keyword,addresses)
+	for each_keyword in keywords:
+		p = re.compile(r'\b%s\b' % each_keyword.lower(), re.I)
+		m=p.search(text_string.lower())
+		if m!=None:			
+			extractAddress(text_string,0,p,each_keyword,addresses)
 	temp["address"]=list(addresses)		
 	return temp	
 
@@ -130,4 +162,4 @@ if __name__ == '__main__':
 	json.dump(finalAddressData,outputFile,sort_keys=False,indent=2)	
 	outputFile.close()
 	print ("Output File: ",sys.argv[1].split(".")[0]+"_out.txt")
-	print ('Took {0} second !'.format(time.time() - startTime))
+	print ('Took {0} second !'.format(time.time() - startTime))	
