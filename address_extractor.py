@@ -11,10 +11,19 @@ import time
 Keywords: contains list of all the addresses type that we want to use for processing.
 """
 
-keywords=["avenue","blvd","boulevard","pkwy","parkway","st","street","rd","road","way","drive","lane","alley","ave"]		
+keywords=["avenue","blvd","boulevard","pkwy","parkway","street","st","rd","road","drive","lane","alley","ave"]		
 
 #phonePattern = re.compile(r'(\d{3})\D*(\d{3})\D*(\d{4})\D*(\d*)$')
 phonePattern = re.compile(r'(\d{3})\D*(\d{3})\D*(\d{4})')
+
+cleaningLevel=4
+
+def verifyAddress(text_string):
+	flag=True
+	for each_word in text_string.split(" "):
+		if len(each_word)>0 and each_word not in keywords:
+			return True
+	return False
 
 def cleanAddress(text_string,level):
 	if level>0:
@@ -35,7 +44,12 @@ def cleanAddress(text_string,level):
 		if text_string.find('maps.google.com') >-1 or text_string.find('=')>-1:
 			pos=text_string.rfind('=')
 			if pos >-1:
-				text_string=text_string[pos+1:].replace('+',' ')		
+				text_string=text_string[pos+1:].replace('+',' ')
+
+	if level>3:
+		#Cleaning if special symbols are present in found address		
+		text_string=re.sub('[^a-zA-Z0-9.\- \n\.]', '', text_string)				
+
 	return text_string.strip()
 
 def getNum(text,start,dist):
@@ -85,8 +99,10 @@ def extractAddress(text,p,type1,addresses):
 				start=bkStart
 		flag,newEnd=getNumNext(text,end,25)
 		if flag:
-			end=newEnd		
-		addresses.add(cleanAddress(text[start:end].lower(),3))
+			end=newEnd
+		temp=cleanAddress(text[start:end].lower(),cleaningLevel)	
+		if verifyAddress(temp):
+			addresses.add(temp)
 		m=p.search(text.lower(),end)
 		if m!=None:
 			addresses=extractAddress(text[end:],p,type1,addresses)
